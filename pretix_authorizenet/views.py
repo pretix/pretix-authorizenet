@@ -63,10 +63,13 @@ def webhook(request, *args, **kwargs):
         return HttpResponse("Invalid signature", status=200)
 
     payment.order.log_action("pretix_authorizenet.event", data=data)
-    if data["eventType"] == "net.authorize.payment.void.created" or data["eventType"] == "net.authorize.payment.refund.created":
+    if (
+        data["eventType"] == "net.authorize.payment.void.created"
+        or data["eventType"] == "net.authorize.payment.refund.created"
+    ):
         # before creating an external refund, check if we just created this ourselves
         inv_num = data["payload"].get("invoiceNumber", "")
-        if '-R-' in inv_num:
+        if "-R-" in inv_num:
             r = OrderRefund.objects.filter(
                 order__code=inv_num.split("-")[0],
                 local_id=inv_num.split("-")[2],
