@@ -217,9 +217,9 @@ class AuthorizeNetMethod(BasePaymentProvider):
         request.session[f"authorizenet_{self.method}_datavalue"] = request.POST.get(
             f"authorizenet-{self.method}-datavalue"
         )
-        request.session[
-            f"authorizenet_{self.method}_datadescriptor"
-        ] = request.POST.get(f"authorizenet-{self.method}-datadescriptor")
+        request.session[f"authorizenet_{self.method}_datadescriptor"] = (
+            request.POST.get(f"authorizenet-{self.method}-datadescriptor")
+        )
         return True
 
     def payment_is_valid_session(self, request: HttpRequest):
@@ -335,7 +335,10 @@ class AuthorizeNetMethod(BasePaymentProvider):
 
             refund.info_data = resp
             refund.save(update_fields=["info"])
-            if resp["messages"]["resultCode"] == "Ok" and resp["transactionResponse"]["responseCode"] == "1":
+            if (
+                resp["messages"]["resultCode"] == "Ok"
+                and resp["transactionResponse"]["responseCode"] == "1"
+            ):
                 refund.info_data = resp
                 refund.done()
                 return True
@@ -446,7 +449,10 @@ class AuthorizeNetMethod(BasePaymentProvider):
             resp = json.loads(r.content.decode("utf-8-sig"))
 
             payment.order.log_action("pretix_authorizenet.result", data=resp)
-            if resp["messages"]["resultCode"] == "Ok" and resp["transactionResponse"]["responseCode"] == "1":
+            if (
+                resp["messages"]["resultCode"] == "Ok"
+                and resp["transactionResponse"]["responseCode"] == "1"
+            ):
                 ReferencedAuthorizeNetObject.objects.create(
                     order=payment.order,
                     payment=payment,
@@ -471,7 +477,7 @@ class AuthorizeNetMethod(BasePaymentProvider):
                                 )
                             ]
                         ),
-                    }
+                    },
                 )
                 if failed:
                     full_msg = ", ".join(
@@ -480,21 +486,22 @@ class AuthorizeNetMethod(BasePaymentProvider):
                             for msg in resp.get("transactionResponse", {}).get(
                                 "errors", []
                             )
-                        ] or [
+                        ]
+                        or [
                             f"{msg['code']}: {msg['text']}"
                             for msg in resp["messages"]["message"]
                         ]
                     )
                     if "transaction has been declined" in full_msg:
                         raise PaymentException(
-                            _('Your credit card has been declined. You can retry again or with a different card using '
-                              'the button below. If your payment is not completed, your order will automatically be '
-                              'cancelled again.')
+                            _(
+                                "Your credit card has been declined. You can retry again or with a different card using "
+                                "the button below. If your payment is not completed, your order will automatically be "
+                                "cancelled again."
+                            )
                         )
                     else:
-                        raise PaymentException(
-                            full_msg
-                        )
+                        raise PaymentException(full_msg)
         except requests.HTTPError as e:
             logger.exception("Failed to contact Authorize.Net")
             payment.info_data = {

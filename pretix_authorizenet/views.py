@@ -25,12 +25,14 @@ def webhook(request, *args, **kwargs):
 
     payment = None
     try:
-        payment = ReferencedAuthorizeNetObject.objects.get(reference=data["payload"]["id"]).payment
+        payment = ReferencedAuthorizeNetObject.objects.get(
+            reference=data["payload"]["id"]
+        ).payment
     except ReferencedAuthorizeNetObject.DoesNotExist:
         # Far from perfect, but necessary for refund processing
         if "invoiceNumber" not in data["payload"]:
             return HttpResponse("Unknown payment.", status=200)
-        if '-R-' in data["payload"]["invoiceNumber"]:
+        if "-R-" in data["payload"]["invoiceNumber"]:
             r = OrderRefund.objects.filter(
                 order__code=data["payload"]["invoiceNumber"].split("-")[0],
                 local_id=data["payload"]["invoiceNumber"].split("-")[2],
@@ -63,9 +65,7 @@ def webhook(request, *args, **kwargs):
     payment.order.log_action("pretix_authorizenet.event", data=data)
 
     if data["eventType"] == "net.authorize.payment.void.created":
-        payment.create_external_refund(
-            payment.amount, info=json.dumps(data["payload"])
-        )
+        payment.create_external_refund(payment.amount, info=json.dumps(data["payload"]))
     elif data["eventType"] == "net.authorize.payment.refund.created":
         payment.create_external_refund(
             Decimal(data["payload"]["authAmount"]), info=json.dumps(data["payload"])
