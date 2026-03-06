@@ -76,7 +76,10 @@ def webhook(request, *args, **kwargs):
                 provider__startswith="authorizenet_",
             ).first()
             if r:
-                if r.state not in (OrderRefund.REFUND_STATE_DONE, OrderRefund.REFUND_STATE_EXTERNAL):
+                if r.state not in (
+                    OrderRefund.REFUND_STATE_DONE,
+                    OrderRefund.REFUND_STATE_EXTERNAL,
+                ):
                     r.done()
                 return HttpResponse("Already processed", status=200)
         if data["eventType"] == "net.authorize.payment.refund.created":
