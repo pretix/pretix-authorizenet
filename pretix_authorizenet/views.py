@@ -63,13 +63,30 @@ def webhook(request, *args, **kwargs):
         return HttpResponse("Invalid signature", status=200)
 
     payment.order.log_action("pretix_authorizenet.event", data=data)
-
-    if data["eventType"] == "net.authorize.payment.void.created":
-        payment.create_external_refund(payment.amount, info=json.dumps(data["payload"]))
-    elif data["eventType"] == "net.authorize.payment.refund.created":
-        payment.create_external_refund(
-            Decimal(data["payload"]["authAmount"]), info=json.dumps(data["payload"])
-        )
+    if (
+        data["eventType"] == "net.authorize.payment.void.created"
+        or data["eventType"] == "net.authorize.payment.refund.created"
+    ):
+        # before creating an external refund, check if we just created this ourselves
+        inv_num = data["payload"].get("invoiceNumber", "")
+        if "-R-" in inv_num:
+            r = OrderRefund.objects.filter(
+                order__code=inv_num.split("-")[0],
+                local_id=inv_num.split("-")[2],
+                provider__startswith="authorizenet_",
+            ).first()
+            if r:
+                if r.state not in (
+                    OrderRefund.REFUND_STATE_DONE,
+                    OrderRefund.REFUND_STATE_EXTERNAL,
+                ):
+                    r.done()
+                return HttpResponse("Already processed", status=200)
+        if data["eventType"] == "net.authorize.payment.refund.created":
+            amount = Decimal(data["payload"]["authAmount"])
+        else:
+            amount = payment.amount
+        payment.create_external_refund(amount, info=json.dumps(data["payload"]))
     elif data[
         "eventType"
     ] == "net.authorize.payment.fraud.declined" and payment.state not in (
