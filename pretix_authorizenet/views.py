@@ -75,7 +75,9 @@ def webhook(request, *args, **kwargs):
                 local_id=inv_num.split("-")[2],
                 provider__startswith="authorizenet_",
             ).first()
-            if r and r.state == OrderRefund.REFUND_STATE_DONE:
+            if r:
+                if r.state not in (OrderRefund.REFUND_STATE_DONE, OrderRefund.REFUND_STATE_EXTERNAL):
+                    r.done()
                 return HttpResponse("Already processed", status=200)
         if data["eventType"] == "net.authorize.payment.refund.created":
             amount = Decimal(data["payload"]["authAmount"])
